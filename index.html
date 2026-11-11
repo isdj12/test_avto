@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Генератор тест-дизайна</title>
+<style>
+  :root { --bg: #F8FAFC; --card: #FFFFFF; --text: #0F172A; --muted: #64748B; --line: #E2E8F0; --input-border: #CBD5E1; --accent: #4F46E5; --accent-d: #4338CA; --ok: #059669; --err: #EF4444; --soft: #EEF2FF; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.5 Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); }
+  
+  header { height: 60px; background: var(--card); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 20; }
+  .header-inner { max-width: 1280px; height: 100%; margin: 0 auto; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 16px; color: var(--text); }
+  .brand-icon { width: 30px; height: 30px; border-radius: 7px; background: var(--accent); color: #fff; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+  .header-actions { display: flex; align-items: center; gap: 10px; }
+  .header-actions select { width: 210px; }
+  
+  main { max-width: 1280px; margin: 0 auto; padding: 24px; display: grid; grid-template-columns: 1fr 380px; gap: 24px; align-items: start; }
+  @media (max-width: 960px) { main { grid-template-columns: 1fr; }
+    .sidebar { position: static !important; } }
+  .sidebar { position: sticky; top: 84px; display: flex; flex-direction: column; gap: 16px; }
+  
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03); }
+  .sidebar .card { margin-bottom: 0; }
+  .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+  .step-title { margin: 0; font-size: 15px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 6px; }
+  .hint { color: var(--muted); margin: 8px 0 0; font-size: 13px; }
+  
+  input[type=text], input[type=number], select, textarea { width: 100%; height: 38px; padding: 0 11px; border: 1px solid var(--input-border); border-radius: 6px; font: inherit; background: #fff; color: var(--text); transition: border-color .15s, box-shadow .15s; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15); }
+  textarea { height: auto; min-height: 96px; padding: 8px 11px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; }
+  button { font: inherit; cursor: pointer; }
+  .btn { height: 38px; padding: 0 14px; border: 1px solid var(--input-border); background: #fff; border-radius: 6px; color: var(--text); font-weight: 500; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: background .15s, border-color .15s; }
+  .btn:hover { background: #F1F5F9; }
+  .btn-sm { height: 30px; padding: 0 10px; font-size: 12px; color: var(--muted); border-color: var(--line); }
+  .btn-sm:hover { color: var(--text); }
+  .btn-sm.active { background: var(--soft); color: var(--accent); border-color: #C7D2FE; }
+  .btn.primary { width: 100%; height: 40px; background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; font-size: 14px; border-radius: 6px; }
+  .btn.primary:hover { background: var(--accent-d); }
+  .btn.primary:disabled { opacity: .6; cursor: wait; }
+  
+  .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; background: #F1F5F9; padding: 4px; border-radius: 8px; }
+  .choice { border: none; border-radius: 6px; padding: 8px 12px; background: transparent; color: var(--muted); font-weight: 500; font-size: 13px; text-align: center; transition: background .15s, color .15s, box-shadow .15s; }
+  .choice:hover { color: var(--text); }
+  .choice.active { background: #fff; color: var(--text); font-weight: 600; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08); }
+  
+  .qmark { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--input-border); color: var(--muted); font-size: 11px; font-weight: 600; cursor: help; user-select: none; }
+  .qmark:hover { color: var(--accent); border-color: var(--accent); background: var(--soft); }
+  .qmark .tip { display: none; position: absolute; right: 0; top: calc(100% + 8px); width: 310px; background: #0F172A; color: #F8FAFC; font-weight: 400; font-size: 12px; line-height: 1.45; padding: 10px 12px; border-radius: 8px; box-shadow: 0 10px 25px rgba(15, 23, 42, 0.2); z-index: 30; text-align: left; }
+  .qmark:hover .tip { display: block; }
+  .qmark .tip code { background: rgba(255, 255, 255, 0.14); padding: 1px 5px; border-radius: 4px; color: #E0E7FF; }
+  
+  .param { border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-bottom: 12px; background: var(--card); box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03); }
+  .param-head { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; }
+  .param-head .pnum { color: var(--muted); font-size: 12px; font-weight: 500; white-space: nowrap; background: #F1F5F9; padding: 4px 8px; border-radius: 5px; }
+  .param-head .name { font-weight: 600; }
+  .vhead, .vrow { display: grid; grid-template-columns: 1fr 140px 34px; gap: 8px; align-items: center; }
+  .vhead { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; padding: 0 2px; }
+  .vrow { margin-bottom: 8px; }
+  .vrow input.pr { text-align: right; }
+  .vrow input.pr.bad { border-color: var(--err); background: #FEF2F2; }
+  .del { border: none; background: transparent; color: #94A3B8; border-radius: 6px; height: 34px; width: 34px; font-size: 18px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; transition: background .15s, color .15s; }
+  .del:hover { background: #FEF2F2; color: var(--err); }
+  .addv { border: 1px dashed #CBD5E1; background: transparent; color: var(--muted); border-radius: 6px; padding: 6px 12px; font-size: 13px; font-weight: 500; transition: border-color .15s, color .15s, background .15s; }
+  .addv:hover { border-color: var(--accent); color: var(--accent); background: var(--soft); }
+  .param-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 4px; }
+  .addp { border: 1px dashed #A5B4FC; background: var(--soft); color: var(--accent); border-radius: 8px; height: 38px; padding: 0 16px; font-weight: 600; }
+  .addp:hover { background: #E0E7FF; }
+  .count { color: var(--muted); font-size: 13px; }
+  .count b { color: var(--text); }
+  .bulk-box { background: #F8FAFC; border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+  
+  .field { margin-bottom: 12px; }
+  .field:last-child { margin-bottom: 0; }
+  .field label { display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 500; margin-bottom: 5px; color: var(--text); }
+  .field small { color: var(--muted); display: block; margin-top: 4px; font-size: 12px; line-height: 1.35; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .sfx-wrap { position: relative; display: flex; align-items: center; }
+  .sfx-wrap input { padding-right: 48px; }
+  .sfx { position: absolute; right: 10px; color: var(--muted); font-size: 12px; font-weight: 500; pointer-events: none; background: #F1F5F9; padding: 2px 6px; border-radius: 4px; }
+  
+  .result { border-color: #A7F3D0; background: #ECFDF5; }
+  .result h3 { margin: 0 0 8px; font-size: 14px; color: var(--ok); }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+  .stat { background: #fff; border: 1px solid #D1FAE5; border-radius: 8px; padding: 8px 10px; }
+  .stat b { display: block; font-size: 16px; color: var(--text); }
+  .stat span { font-size: 11px; color: var(--muted); }
+  a.dl { display: flex; align-items: center; justify-content: center; width: 100%; height: 38px; background: var(--ok); color: #fff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 13px; }
+  a.dl:hover { filter: brightness(0.95); }
+  .error { background: #FEF2F2; border: 1px solid #FECACA; color: var(--err); border-radius: 6px; padding: 8px 11px; margin-top: 10px; font-size: 13px; display: none; }
+  ul.files { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .file-item a { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; text-decoration: none; color: var(--text); background: #fff; transition: border-color .15s, background .15s; }
+  .file-item a:hover { border-color: #C7D2FE; background: var(--soft); }
+  .file-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .file-icon { width: 26px; height: 26px; border-radius: 6px; background: #ECFDF5; color: var(--ok); font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+  .file-name { font-weight: 500; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .file-time { color: var(--muted); font-size: 11px; white-space: nowrap; }
+  .empty { color: var(--muted); font-size: 13px; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <div class="header-inner">
+    <div class="brand">
+      <span class="brand-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+      </span>
+      <span>Генератор тест-дизайна</span>
+    </div>
+    <div class="header-actions">
+      <select id="tplSelect">
+        <option value="">Загрузить из шаблона…</option>
+      </select>
+      <button class="btn" id="clearAll" type="button">Очистить всё</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="workspace">
+    <section class="card">
+      <div class="choices">
+        <button class="choice active" data-tech="pairwise" type="button">Попарное тестирование (Pairwise)</button>
+        <button class="choice" data-tech="tpr" type="button">Таблица принятия решений (ТПР)</button>
+      </div>
+      <p class="hint" id="techHint">Минимальный набор тестов, покрывающий все пары значений, плюс чек-лист и сводка сокращения.</p>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2 class="step-title">
+          Параметры и значения
+          <span class="qmark">?
+            <span class="tip">
+              <b>Как работает цена?</b><br>
+              Первый параметр задаёт базовую цену (<code>500</code>), остальные её меняют:
+              <code>+200</code> прибавить, <code>-50</code> вычесть, <code>*1.5</code> умножить, <code>+10%</code> прибавить 10%.<br>
+              Нажмите <b>Enter</b> в поле значения или цены, чтобы сразу добавить следующую строку.
+            </span>
+          </span>
+        </h2>
+        <button class="btn btn-sm" id="toggleBulk" type="button">Вставить списком текстом</button>
+      </div>
+
+      <div class="bulk-box hidden" id="bulkBox">
+        <div class="field">
+          <textarea id="bulk" placeholder="Игра: Бункер (700), Диксит (1200)&#10;Версия: Детская (+200), Дорожная (+0)&#10;Получение: Самовывоз, Курьер (+300)"></textarea>
+          <small>Один параметр на строку: <code>Название: значение (цена), значение (цена)</code>. Строки с # игнорируются.</small>
+        </div>
+        <button class="btn btn-sm" id="applyBulk" type="button">Применить список</button>
+      </div>
+
+      <div id="rows"></div>
+
+      <div class="param-footer">
+        <button class="addp" id="addRow" type="button">+ Добавить параметр</button>
+        <div class="count" id="count"></div>
+      </div>
+    </section>
+  </div>
+
+  <aside class="sidebar">
+    <section class="card">
+      <div class="card-head">
+        <h2 class="step-title">Ожидаемый результат (ОР)</h2>
+      </div>
+
+      <div class="field">
+        <label for="orMode">Как заполнять</label>
+        <select id="orMode">
+          <option value="0">Не заполнять (пусто)</option>
+          <option value="2">Цена: база + наценки (+200, −50, ×1.5, +10%)</option>
+          <option value="1">Сумма всех чисел</option>
+          <option value="3">Произведение всех чисел</option>
+          <option value="4">Два текста по порогу суммы</option>
+          <option value="5">Склеить названия значений</option>
+          <option value="6">Свой одинаковый текст</option>
+        </select>
+        <small id="orHelp"></small>
+      </div>
+
+      <div class="field">
+        <label for="orLabel">Название строки ОР</label>
+        <input type="text" id="orLabel" value="Стоимость заказа" placeholder="Стоимость заказа">
+      </div>
+
+      <div class="field hidden" id="boxPostfix">
+        <label for="orPostfix">Единица после числа</label>
+        <input type="text" id="orPostfix" placeholder="₽">
+      </div>
+
+      <div class="hidden" id="boxThreshold">
+        <div class="field">
+          <label for="orThr">Порог (число)</label>
+          <input type="number" id="orThr" value="1000">
+        </div>
+        <div class="grid2">
+          <div class="field">
+            <label for="orBelow">Если &lt; порога</label>
+            <input type="text" id="orBelow" placeholder="Платная доставка">
+          </div>
+          <div class="field">
+            <label for="orAbove">Если &ge; порога</label>
+            <input type="text" id="orAbove" placeholder="Бесплатная доставка">
+          </div>
+        </div>
+      </div>
+
+      <div class="field hidden" id="boxFixed">
+        <label for="orFixed">Текст для каждого теста</label>
+        <input type="text" id="orFixed" placeholder="Заказ оформлен">
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2 class="step-title">Создать файл</h2>
+      </div>
+      <div class="field">
+        <label for="fileName">Имя файла</label>
+        <div class="sfx-wrap">
+          <input type="text" id="fileName" value="Pairwise">
+          <span class="sfx">.xlsx</span>
+        </div>
+      </div>
+      <button class="btn primary" id="go" type="button">Создать Excel</button>
+      <div class="error" id="err"></div>
+    </section>
+
+    <section class="card result hidden" id="result">
+      <h3>✓ Файл готов</h3>
+      <div class="stats" id="stats"></div>
+      <a class="dl" id="dl" href="#">Скачать файл</a>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2 class="step-title">Созданные файлы</h2>
+      </div>
+      <ul class="files" id="files"></ul>
+    </section>
+  </aside>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+let tech = 'pairwise';
+
+const TECH_HINTS = {
+  pairwise: 'Минимальный набор тестов, покрывающий все пары значений, плюс чек-лист и сводка сокращения.',
+  tpr: 'Полный перебор: каждая комбинация значений. Покрытие 100%, но тестов значительно больше.'
+};
+
+const MODE_HELP = {
+  0: '',
+  1: 'Складывает все числа из значений: 700 + 200 + 150 = 1050.',
+  2: 'Первое значение — база, остальные меняют её: +200, -50, *1.5, +10%.',
+  3: 'Перемножает все числа из выбранных значений.',
+  4: 'Если сумма чисел меньше порога — первый текст, иначе второй.',
+  5: 'Названия значений через « / »: Бункер / Детская / Да.',
+  6: 'Во всех тестах записывается один и тот же текст.'
+};
+document.querySelectorAll('.choice').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.choice').forEach(x => x.classList.remove('active'));
+  b.classList.add('active');
+  tech = b.dataset.tech;
+  $('#techHint').textContent = TECH_HINTS[tech];
+  const fn = $('#fileName');
+  if (['Pairwise', 'TPR', ''].includes(fn.value)) fn.value = tech === 'pairwise' ? 'Pairwise' : 'TPR';
+  updateCount();
+}));
+$('#toggleBulk').addEventListener('click', () => {
+  const box = $('#bulkBox');
+  box.classList.toggle('hidden');
+  $('#toggleBulk').classList.toggle('active', !box.classList.contains('hidden'));
+  if (!box.classList.contains('hidden')) $('#bulk').focus();
+});
+const PRICE_RX = /^[+\-*/]?\d+([.,]\d+)?%?$/;
+
+function addValue(card, name = '', price = '', focus = false, afterRow = null) {
+  const r = document.createElement('div');
+  r.className = 'vrow';
+  r.innerHTML = `<input type="text" class="vname" placeholder="Например: Детская">
+                 <input type="text" class="pr">
+                 <button class="del" type="button" title="Удалить значение">×</button>`;
+  const vn = r.querySelector('.vname'), pr = r.querySelector('.pr');
+  vn.value = name;
+  pr.value = price;
+  r.querySelectorAll('input').forEach(i => {
+    i.addEventListener('input', () => {
+      pr.classList.toggle('bad', !!pr.value.trim() && !PRICE_RX.test(pr.value.trim()));
+      refresh();
+    });
+    i.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        addValue(card, '', '', true, r);
+      }
+    });
+  });
+  r.querySelector('.del').addEventListener('click', () => {
+    r.remove();
+    if (!card.querySelector('.vrow')) addValue(card);
+    refresh();
+  });
+  const vals = card.querySelector('.vals');
+  if (afterRow && afterRow.nextSibling) vals.insertBefore(r, afterRow.nextSibling);
+  else vals.appendChild(r);
+  if (focus) vn.focus();
+  refresh();
+}
+
+function addParam(name = '', values = []) {
+  const card = document.createElement('div');
+  card.className = 'param';
+  card.innerHTML = `<div class="param-head">
+      <span class="pnum"></span>
+      <input type="text" class="name" placeholder="Название параметра, например: Версия">
+      <button class="del" type="button" title="Удалить параметр">×</button>
+    </div>
+    <div class="vhead"><div>Значение</div><div class="plabel"></div><div></div></div>
+    <div class="vals"></div>
+    <button class="addv" type="button">+ Добавить значение</button>`;
+  card.querySelector('.name').value = name;
+  card.querySelector('.name').addEventListener('input', refresh);
+  card.querySelector('.param-head .del').addEventListener('click', () => { card.remove(); refresh(); });
+  card.querySelector('.addv').addEventListener('click', () => addValue(card, '', '', true));
+  $('#rows').appendChild(card);
+  (values.length ? values : [{}, {}]).forEach(v => addValue(card, v.name || '', v.price || ''));
+  refresh();
+  return card;
+}
+
+function refresh() {
+  document.querySelectorAll('#rows .param').forEach((c, i) => {
+    c.querySelector('.pnum').textContent = `П${i + 1}`;
+    c.querySelector('.plabel').textContent = i === 0 ? 'Цена (база)' : 'Наценка';
+    c.querySelectorAll('.pr').forEach(p => p.placeholder = i === 0 ? '500' : '+200');
+  });
+  updateCount();
+  suggestMode();
+}
+
+function parseVals(s) { return s.split(',').map(x => x.trim()).filter(Boolean); }
+
+function splitPrice(s) {
+  const m = s.match(/^(.*?)\s*\(([^()]*)\)\s*$/);
+  return m ? { name: m[1], price: m[2] } : { name: s, price: '' };
+}
+
+function getParams() {
+  return [...document.querySelectorAll('#rows .param')].map(c => ({
+    name: c.querySelector('.name').value.trim(),
+    values: [...c.querySelectorAll('.vrow')].map(r => {
+      const n = r.querySelector('.vname').value.trim(), p = r.querySelector('.pr').value.trim();
+      return n ? (p ? `${n} (${p})` : n) : '';
+    }).filter(Boolean)
+  })).filter(p => p.name && p.values.length);
+}
+
+function setParams(list) {
+  $('#rows').innerHTML = '';
+  list.forEach(p => addParam(p.name, p.values.map(splitPrice)));
+  if (!list.length) addParam();
+}
+
+function suggestMode() {
+  const hasPrice = [...document.querySelectorAll('#rows .pr')].some(p => p.value.trim());
+  if (hasPrice && $('#orMode').value === '0') { $('#orMode').value = '2'; onMode(); }
+}
+
+function updateCount() {
+  const ps = getParams();
+  const el = $('#count');
+  if (!ps.length) { el.innerHTML = ''; return; }
+  const total = ps.reduce((a, p) => a * p.values.length, 1);
+  el.innerHTML = tech === 'tpr'
+    ? `Будет тестов: <b>${total}</b>`
+    : `ТПР: <b>${total}</b> · Pairwise: <b>меньше</b>`;
+}
+
+$('#addRow').addEventListener('click', () => addParam().querySelector('.name').focus());
+$('#clearAll').addEventListener('click', () => setParams([]));
+
+$('#applyBulk').addEventListener('click', () => {
+  const list = [];
+  $('#bulk').value.split('\n').forEach(line => {
+    line = line.trim();
+    if (!line || line.startsWith('#')) return;
+    const i = line.indexOf(':');
+    if (i < 1) return;
+    const values = parseVals(line.slice(i + 1));
+    if (values.length) list.push({ name: line.slice(0, i).trim(), values });
+  });
+  if (list.length) {
+    setParams(list);
+    $('#bulk').value = '';
+    $('#bulkBox').classList.add('hidden');
+    $('#toggleBulk').classList.remove('active');
+  } else showErr('Не удалось разобрать список. Формат: Название: значение1, значение2');
+});
+
+async function loadTemplates() {
+  const names = await (await fetch('/api/templates')).json();
+  const sel = $('#tplSelect');
+  names.forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; sel.appendChild(o); });
+}
+$('#tplSelect').addEventListener('change', async e => {
+  const n = e.target.value;
+  if (!n) return;
+  const r = await fetch('/api/templates/' + encodeURIComponent(n));
+  if (r.ok) setParams(await r.json()); else showErr('Не удалось загрузить шаблон');
+  e.target.value = '';
+});
+function onMode() {
+  const m = +$('#orMode').value;
+  $('#orHelp').textContent = MODE_HELP[m];
+  $('#boxPostfix').classList.toggle('hidden', ![1, 2, 3].includes(m));
+  $('#boxThreshold').classList.toggle('hidden', m !== 4);
+  $('#boxFixed').classList.toggle('hidden', m !== 6);
+}
+$('#orMode').addEventListener('change', onMode);
+function showErr(msg) { const e = $('#err'); e.textContent = msg; e.style.display = msg ? 'block' : 'none'; }
+
+$('#go').addEventListener('click', async () => {
+  showErr('');
+  $('#result').classList.add('hidden');
+  const params = getParams();
+  if (!params.length) { showErr('Заполните хотя бы один параметр со значениями.'); return; }
+  const btn = $('#go'); btn.disabled = true; btn.textContent = 'Создаю…';
+  try {
+    const body = {
+      technique: tech,
+      filename: $('#fileName').value,
+      params,
+      or: {
+        mode: +$('#orMode').value, label: $('#orLabel').value, postfix: $('#orPostfix').value,
+        threshold: parseFloat($('#orThr').value) || 0, below: $('#orBelow').value,
+        above: $('#orAbove').value, fixed: $('#orFixed').value
+      }
+    };
+    const r = await fetch('/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const d = await r.json();
+    if (!r.ok) { showErr(d.error || 'Ошибка'); return; }
+    const stats = d.pairwise !== undefined
+      ? [['Pairwise', d.pairwise], ['В ТПР', d.total], ['Сжатие', d.reduction.toFixed(1) + '%']]
+      : [['Тест-кейсов', d.total]];
+    $('#stats').innerHTML = stats.map(s => `<div class="stat"><b>${s[1]}</b><span>${s[0]}</span></div>`).join('');
+    $('#dl').href = '/excel/' + encodeURIComponent(d.file);
+    $('#dl').textContent = 'Скачать ' + d.file;
+    $('#result').classList.remove('hidden');
+    loadFiles();
+  } catch (e) { showErr('Нет связи с сервером: ' + e.message); }
+  finally { btn.disabled = false; btn.textContent = 'Создать Excel'; }
+});
+
+async function loadFiles() {
+  const list = await (await fetch('/api/files')).json();
+  $('#files').innerHTML = list.length
+    ? list.map(f => `<li class="file-item">
+        <a href="/excel/${encodeURIComponent(f.name)}">
+          <span class="file-left">
+            <span class="file-icon">XLS</span>
+            <span class="file-name">${f.name}</span>
+          </span>
+          <span class="file-time">${f.time}</span>
+        </a>
+      </li>`).join('')
+    : '<li class="empty">Пока нет файлов</li>';
+}
+addParam('Игра', [{ name: 'Бункер', price: '700' }, { name: 'Диксит', price: '1200' }]);
+addParam('Версия', [{ name: 'Детская', price: '+200' }, { name: 'Дорожная', price: '+0' }]);
+addParam('Получение', [{ name: 'Самовывоз', price: '' }, { name: 'Курьер', price: '+300' }]);
+onMode(); loadTemplates(); loadFiles();
+</script>
+</body>
+</html>
