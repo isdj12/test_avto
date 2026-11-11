@@ -1,3 +1,4 @@
 TPR.xlsx
 Pairwise.xlsx
 *.xlsx
+!excel/*.xlsx

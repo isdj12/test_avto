@@ -1,4 +1,4 @@
-package main
+package tpr
 
 import (
 	"bufio"
@@ -28,79 +28,6 @@ type ORConfig struct {
 	FixedText string
 }
 
-const defaultTemplateContent = `# Шаблон: Интернет-магазин настольных игр
-# Формат: Имя параметра: Значение1, Значение2, ...
-# Строки с # — комментарии, игнорируются
-# Числа в скобках: (500) — база, (+200) — плюс, (-50) — минус
-
-Игра: Взрывные котята (500), Бункер (700), Имаджинариум (900), Диксит (1200), Каркассон (1500)
-Версия: Детская (+200), Дорожная (+0), Настольная (+500)
-Комплект: Да (+150), Нет (+0)
-Получение: Самовывоз (+0), Доставка (+100)
-`
-
-// ── Выбор шаблона ────────────────────────────────────────────
-
-func findTemplates() []string {
-	var found []string
-	seen := map[string]bool{}
-	// В папке templates/ — ВСЕ .txt файлы
-	if matches, _ := filepath.Glob("templates/*.txt"); len(matches) > 0 {
-		for _, m := range matches {
-			if !seen[m] {
-				seen[m] = true
-				found = append(found, m)
-			}
-		}
-	}
-	// В текущей папке — только input*.txt (запасной вариант)
-	if matches, _ := filepath.Glob("input*.txt"); len(matches) > 0 {
-		for _, m := range matches {
-			if !seen[m] {
-				seen[m] = true
-				found = append(found, m)
-			}
-		}
-	}
-	return found
-}
-
-func ensureDefaultTemplate() string {
-	const name = "templates/input_boardgames.txt"
-	os.MkdirAll("templates", 0755)
-	_ = os.WriteFile(name, []byte(defaultTemplateContent), 0644)
-	fmt.Printf("  Создан шаблон: %s\n", name)
-	return name
-}
-
-func chooseTemplate(reader *bufio.Reader) string {
-	templates := findTemplates()
-	if len(templates) == 0 {
-		fmt.Println("  Шаблоны input*.txt не найдены. Создаю дефолтный...")
-		p := ensureDefaultTemplate()
-		templates = []string{p}
-	}
-
-	fmt.Println()
-	fmt.Println("  ┌─ Доступные шаблоны ──────────────────────────────────")
-	for i, t := range templates {
-		fmt.Printf("  │  [%d] %s\n", i+1, t)
-	}
-	fmt.Println("  └──────────────────────────────────────────────────────")
-	fmt.Println()
-	fmt.Printf("  Номер, путь к файлу или Enter [%s]: ", templates[0])
-
-	line, _ := reader.ReadString('\n')
-	line = strings.TrimSpace(line)
-	if line == "" {
-		return templates[0]
-	}
-	if n, err := strconv.Atoi(line); err == nil && n >= 1 && n <= len(templates) {
-		return templates[n-1]
-	}
-	return line
-}
-
 // ── Математика ────────────────────────────────────────────────
 
 var numRx = regexp.MustCompile(`[+\-]?\d+(?:[.,]\d+)?`)
@@ -113,17 +40,6 @@ func extractNum(s string) (float64, bool) {
 	}
 	v, err := strconv.ParseFloat(strings.ReplaceAll(m, ",", "."), 64)
 	return v, err == nil
-}
-
-func hasNumbers(params []Parameter) bool {
-	for _, p := range params {
-		for _, v := range p.Values {
-			if numRx.MatchString(v) {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func sumCombo(params []Parameter, c []int) float64 {
@@ -458,46 +374,6 @@ func readFile(filename string) ([]Parameter, error) {
 	return params, sc.Err()
 }
 
-func readManual(reader *bufio.Reader) []Parameter {
-	var params []Parameter
-	fmt.Println("  Формат: Имя: Значение1, Значение2, ...")
-	fmt.Println("  Пустая строка — завершить.")
-	fmt.Println()
-	for {
-		fmt.Print("  Параметр: ")
-		line, _ := reader.ReadString('\n')
-		line = strings.TrimSpace(line)
-		if line == "" {
-			break
-		}
-		parts := strings.SplitN(line, ":", 2)
-		if len(parts) != 2 {
-			fmt.Println("  Нужно двоеточие: Имя: Значение1, Значение2")
-			continue
-		}
-		name := strings.TrimSpace(parts[0])
-		var vals []string
-		for _, v := range strings.Split(parts[1], ",") {
-			if v = strings.TrimSpace(v); v != "" {
-				vals = append(vals, v)
-			}
-		}
-		if name == "" || len(vals) == 0 {
-			fmt.Println("  Имя и хотя бы одно значение обязательны.")
-			continue
-		}
-		params = append(params, Parameter{Name: name, Values: vals})
-		fmt.Printf("  ✓ П%d: %s → [%s]\n\n", len(params), name, strings.Join(vals, " | "))
-	}
-	return params
-}
-
-func ask(reader *bufio.Reader, msg string) string {
-	fmt.Print(msg)
-	s, _ := reader.ReadString('\n')
-	return strings.TrimSpace(s)
-}
-
 func addXlsx(name string) string {
 	if !strings.HasSuffix(strings.ToLower(name), ".xlsx") {
 		return name + ".xlsx"
@@ -505,122 +381,40 @@ func addXlsx(name string) string {
 	return name
 }
 
-func askOR(reader *bufio.Reader, params []Parameter) ORConfig {
-	cfg := ORConfig{}
-	ans := ask(reader, "Название поля ОР [Стоимость заказа]: ")
-	if ans == "" {
-		cfg.Label = "Стоимость заказа"
-	} else {
-		cfg.Label = ans
-	}
+// OutputDir — папка для Excel-файлов, если в имени выходного файла не указан путь.
+var OutputDir = "excel"
 
-	fmt.Println()
-	if hasNumbers(params) {
-		fmt.Println("  Обнаружены числовые значения.")
-	}
-	fmt.Println("  Режим расчёта ОР:")
-	fmt.Println("  [1] Сумма чисел")
-	fmt.Println("  [2] Умный расчёт (+100, -50, *1.5, +10%)")
-	fmt.Println("  [3] Произведение чисел")
-	fmt.Println("  [4] Порог: если сумма < X → текст A, иначе → текст B")
-	fmt.Println("  [5] Текстовое имя из значений параметров")
-	fmt.Println("  [6] Фиксированный текст / пустые ячейки")
-	fmt.Println("  [0] Не заполнять ОР")
-	fmt.Println()
-
-	mode, _ := strconv.Atoi(ask(reader, "  Ваш выбор [0]: "))
-	cfg.Mode = mode
-
-	switch mode {
-	case 1, 2, 3:
-		cfg.Postfix = ask(reader, "  Постфикс (₽, руб., $ — или пусто): ")
-	case 4:
-		t, _ := strconv.ParseFloat(strings.ReplaceAll(ask(reader, "  Порог (число): "), ",", "."), 64)
-		cfg.Threshold = t
-		cfg.BelowText = ask(reader, "  Текст если < порога: ")
-		cfg.AboveText = ask(reader, "  Текст если >= порога: ")
-	case 6:
-		cfg.FixedText = ask(reader, "  Текст (пусто = пустые ячейки): ")
-	}
-	fmt.Println()
-	return cfg
+// Result — итог генерации ТПР.
+type Result struct {
+	File  string
+	Total int
 }
 
-// ── main ─────────────────────────────────────────────────────
-
-func main() {
-	reader := bufio.NewReader(os.Stdin)
-
-	fmt.Println()
-	fmt.Println("══════════════════════════════════════════════════════")
-	fmt.Println("  TPR — Таблица принятия решений")
-	fmt.Println("══════════════════════════════════════════════════════")
-	fmt.Println()
-
-	outAns := ask(reader, "Имя выходного файла [TPR.xlsx]: ")
-	outputFile := "TPR.xlsx"
-	if outAns != "" {
-		outputFile = addXlsx(outAns)
-	}
-	fmt.Println()
-
-	fmt.Println("─── Источник данных ──────────────────────────────────")
-	fmt.Println("  [F] Файл шаблона из templates/")
-	fmt.Println("  [M] Ввести вручную")
-	fmt.Println()
-
-	var params []Parameter
-	if src := strings.ToLower(ask(reader, "  Выбор [F]: ")); src == "m" || src == "м" {
-		fmt.Println()
-		params = readManual(reader)
-	} else {
-		file := chooseTemplate(reader)
-		fmt.Println()
-		var err error
-		params, err = readFile(file)
-		if err != nil {
-			fmt.Printf("  [!] Ошибка: %v\n  Переключаюсь на ручной ввод...\n\n", err)
-			params = readManual(reader)
-		} else {
-			fmt.Printf("  Загружено параметров: %d из «%s»\n", len(params), file)
-		}
-	}
-
+// Generate строит ТПР по параметрам и сохраняет в outputFile (.xlsx).
+func Generate(params []Parameter, cfg ORConfig, outputFile string) (*Result, error) {
 	if len(params) == 0 {
-		fmt.Println("Параметры не введены. Выход.")
-		os.Exit(1)
+		return nil, fmt.Errorf("не заданы параметры")
 	}
-
-	fmt.Println()
-	fmt.Println("─── Параметры ────────────────────────────────────────")
+	outputFile = addXlsx(outputFile)
+	if filepath.Dir(outputFile) == "." {
+		outputFile = filepath.Join(OutputDir, outputFile)
+	}
+	if err := os.MkdirAll(filepath.Dir(outputFile), 0o755); err != nil {
+		return nil, err
+	}
 	total := 1
-	for i, p := range params {
-		fmt.Printf("  П%d: %s → %d %s\n", i+1, p.Name, len(p.Values), pluralVal(len(p.Values)))
+	for _, p := range params {
 		total *= len(p.Values)
 	}
-	fmt.Printf("  Итого комбинаций: %d (%s)\n\n", total, multStr(params))
-
-	cfg := askOR(reader, params)
-
-	fmt.Println("─── Генерация ────────────────────────────────────────")
 	f := excelize.NewFile()
 	defer f.Close()
-	st := mkStyles(f)
-
-	fmt.Print("  Строю ТПР... ")
-	buildTPR(f, params, cfg, st)
-	fmt.Println("готово")
-
+	buildTPR(f, params, cfg, mkStyles(f))
 	f.DeleteSheet("Sheet1")
 	if err := f.SaveAs(outputFile); err != nil {
-		fmt.Printf("\n  [!] Ошибка сохранения: %v\n", err)
-		os.Exit(1)
+		return nil, err
 	}
-
-	fmt.Println()
-	fmt.Println("══════════════════════════════════════════════════════")
-	fmt.Printf("  Файл: %s\n", outputFile)
-	fmt.Printf("  TPR:  %d тест-кейсов (%s)\n", total, multStr(params))
-	fmt.Println("══════════════════════════════════════════════════════")
-	fmt.Println()
+	return &Result{File: outputFile, Total: total}, nil
 }
+
+// ReadTemplate читает файл шаблона (Имя: Значение1, Значение2, ...).
+func ReadTemplate(filename string) ([]Parameter, error) { return readFile(filename) }
